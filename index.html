@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Habit Tracker — Cigarettes, Alcohol & Coffee</title>
+
+  <!-- ✅ PWA-ready meta -->
+  <meta name="theme-color" content="#0b1220" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Habit Tracker">
+  <link rel="apple-touch-icon" sizes="180x180" href="icons/icon-180.png">
+  <link rel="apple-touch-icon" sizes="192x192" href="icons/icon-192.png">
+  <link rel="apple-touch-icon" sizes="512x512" href="icons/icon-512.png">
+
+  <style>
+    :root{ --bg:#0f172a; --muted:#94a3b8; --text:#e5e7eb; --ring:rgba(34,211,238,.4); --good:#22c55e; --warn:#f59e0b; --bad:#ef4444 }
+    *{box-sizing:border-box} html,body{height:100%} body{margin:0;background:linear-gradient(180deg,#0b1020,#0a0f1a 40%,#0b1220 100%);color:var(--text);font:16px/1.4 system-ui,-apple-system,Segoe UI,Roboto,Inter,"Helvetica Neue",Arial}
+    .container{max-width:1100px;margin:0 auto;padding:18px}
+    header{display:flex;align-items:center;gap:12px;justify-content:space-between;margin-bottom:14px}
+    .title{display:flex;align-items:center;gap:10px}
+    .logo{width:40px;height:40px;border-radius:10px;background:radial-gradient(120% 120% at 20% 20%,#34d399 0,#22d3ee 25%,#3b82f6 60%,transparent 70%),linear-gradient(180deg,#0b1528,#0c1a33);box-shadow:0 8px 24px rgba(34,211,238,.12)}
+    h1{margin:0;font-size:20px}
+    .muted{color:var(--muted)}
+    .tabs{display:flex;gap:8px;flex-wrap:wrap}
+    .tab{border:1px solid rgba(255,255,255,.06);background:rgba(255,255,255,.02);padding:8px 12px;border-radius:12px;cursor:pointer}
+    .tab.active{outline:2px solid var(--ring)}
+    .install{border-style:dashed}
+    .grid{display:grid;grid-template-columns:repeat(12,1fr);gap:12px}
+    .card{grid-column:span 12;background:linear-gradient(180deg,#0b1220,#0a101b);border-radius:14px;padding:12px;border:1px solid rgba(255,255,255,.04)}
+    @media(min-width:880px){.lg-6{grid-column:span 6}.lg-8{grid-column:span 8}.lg-4{grid-column:span 4}.lg-3{grid-column:span 3}.lg-9{grid-column:span 9}}
+    label{display:block;margin:6px 0 4px;font-size:13px}
+    input,select,button,textarea{background:#0d1627;color:var(--text);border:1px solid rgba(255,255,255,.06);padding:10px 12px;border-radius:10px;width:100%}
+    button{font-weight:600}
+    .row{display:flex;gap:8px;flex-wrap:wrap}
+    .row>*{flex:1}
+    .actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+    .kpi{display:flex;align-items:center;justify-content:space-between;padding:8px 10px;border-radius:12px;border:1px dashed rgba(255,255,255,.04)}
+    .progress{height:8px;background:#071422;border-radius:999px;overflow:hidden}
+    .calendar{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
+    .cal-day{aspect-ratio:1;border-radius:10px;padding:6px;background:#071424;border:1px solid rgba(255,255,255,.04);display:flex;flex-direction:column;justify-content:space-between}
+    .cal-day.today{outline:2px solid var(--ring);transform:scale(1.02)}
+    .cal-day.readonly{opacity:.6}
+    .toast{position:fixed;right:12px;bottom:12px;background:#08111a;padding:10px 12px;border-radius:10px;border:1px solid rgba(255,255,255,.04);opacity:0;transform:translateY(8px);transition:.25s}
+    .toast.show{opacity:1;transform:translateY(0)}
+    canvas{width:100%!important;height:280px!important}
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div class="title">
+        <div class="logo" aria-hidden="true"></div>
+        <div>
+          <h1>Habit Tracker</h1>
+          <div class="muted">Cigarettes • Alcohol • Coffee — offline PWA</div>
+        </div>
+      </div>
+      <div class="tabs" role="tablist" aria-label="Sections">
+        <button class="tab active" data-tab="dashboard">Dashboard</button>
+        <button class="tab" data-tab="calendar">Calendar</button>
+        <button class="tab" data-tab="trends">Trends</button>
+        <button class="tab" data-tab="goals">Goals</button>
+        <button id="installPwa" class="tab install" style="display:none">Install app</button>
+      </div>
+    </header>
+
+    <section id="dashboard" class="grid">
+      <div class="card lg-6">
+        <h3 style="margin:0 0 8px 0">Quick Log</h3>
+        <form id="logForm">
+          <div class="row">
+            <div>
+              <label for="date">Date</label>
+              <input type="date" id="date" required />
+            </div>
+            <div>
+              <label for="cigarettes">Cigarettes</label>
+              <input type="number" id="cigarettes" min="0" step="1" placeholder="0" />
+            </div>
+            <div>
+              <label for="alcohol">Alcohol (units)</label>
+              <input type="number" id="alcohol" min="0" step="0.5" placeholder="0" />
+            </div>
+            <div>
+              <label for="coffee">Coffee (cups)</label>
+              <input type="number" id="coffee" min="0" step="0.5" placeholder="0" />
+            </div>
+          </div>
+          <label for="note">Note (optional)</label>
+          <textarea id="note" rows="2" placeholder="e.g., party, stressed..."></textarea>
+
+          <div class="actions">
+            <button type="submit" id="saveBtn">Save Entry</button>
+            <button type="button" id="undoBtn" style="display:none">Undo</button>
+            <button type="button" id="clearToday">Clear</button>
+            <button type="button" id="exportData">Export</button>
+            <label style="cursor:pointer;margin:0"><input id="importFile" type="file" accept="application/json" style="display:none"/>Import</label>
+          </div>
+          <div id="formHint" class="muted" style="margin-top:8px;font-size:13px">You can only create or edit today. Past days are read-only; future dates are blocked.</div>
+        </form>
+      </div>
+
+      <div class="card lg-6">
+        <h3 style="margin:0 0 8px 0">Today at a glance</h3>
+        <div id="todaySummary" class="grid" style="grid-template-columns:repeat(3,1fr);gap:10px"></div>
+        <div style="height:10px"></div>
+        <div class="row">
+          <div style="flex:1">
+            <div class="muted">Daily goal adherence</div>
+            <div class="progress"><span id="goalProgressBar" style="width:0%"></span></div>
+          </div>
+          <div style="width:160px;text-align:right">
+            <div class="muted">Streak</div>
+            <strong id="streaks">0 / best 0</strong>
+          </div>
+        </div>
+      </div>
+
+      <div class="card lg-8">
+        <h3 style="margin:0 0 8px 0">Last 90 days</h3>
+        <canvas id="lineChart" aria-label="90-day line chart"></canvas>
+      </div>
+
+      <div class="card lg-4">
+        <h3 style="margin:0 0 8px 0">Weekly totals</h3>
+        <canvas id="barChart"></canvas>
+      </div>
+    </section>
+
+    <section id="calendar" class="grid hidden">
+      <div class="card lg-9">
+        <div class="row" style="align-items:center">
+          <div style="display:flex;gap:6px;align-items:center">
+            <button id="prevMonth">◀</button>
+            <button id="todayBtn">Today</button>
+            <button id="nextMonth">▶</button>
+          </div>
+          <h3 id="monthLabel" style="margin:0 auto 0 12px"></h3>
+        </div>
+        <div style="height:10px"></div>
+        <div class="calendar" id="calendarGrid"></div>
+        <div class="footer muted">Tap a day to inspect. Past days are read-only; tap today to edit.</div>
+      </div>
+      <div class="card lg-3">
+        <h4 style="margin:0 0 8px 0">Weekly Summary</h4>
+        <div id="weeklySummary" style="font-size:13px"></div>
+      </div>
+    </section>
+
+    <section id="trends" class="grid hidden">
+      <div class="card lg-6"><h4 style="margin:0 0 8px 0">7‑day moving averages</h4><canvas id="maChart"></canvas></div>
+      <div class="card lg-6"><h4 style="margin:0 0 8px 0">Best & tough days</h4><div id="bestWorst"></div></div>
+    </section>
+
+    <section id="goals" class="grid hidden">
+      <div class="card lg-6">
+        <h4 style="margin:0 0 8px 0">Daily goals</h4>
+        <form id="goalsForm">
+          <div class="row">
+            <div><label for="goalCig">Max Cigarettes</label><input id="goalCig" type="number" min="0" step="1"/></div>
+            <div><label for="goalAlc">Max Alcohol</label><input id="goalAlc" type="number" min="0" step="0.5"/></div>
+            <div><label for="goalCof">Max Coffee</label><input id="goalCof" type="number" min="0" step="0.5"/></div>
+          </div>
+          <div class="actions"><button type="submit">Save</button><button type="button" id="resetAll" class="danger">Reset</button></div>
+        </form>
+      </div>
+      <div class="card lg-6"><h4 style="margin:0 0 8px 0">Tips</h4><ul><li>Use Export to back up; Import to restore.</li><li>Install the PWA for offline use.</li><li>Undo is available immediately after saving today.</li></ul></div>
+    </section>
+  </div>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script>
+    // Utilities
+    const $ = s => document.querySelector(s);
+    const $$ = s => Array.from(document.querySelectorAll(s));
+    const todayISO = () => new Date(new Date().getTime() - new Date().getTimezoneOffset()*60000).toISOString().slice(0,10);
+    const toISO = d => new Date(d.getTime() - d.getTimezoneOffset()*60000).toISOString().slice(0,10);
+    const fromISO = s => { const d = new Date(s); return new Date(d.getTime() + d.getTimezoneOffset()*60000); };
+
+    // Storage
+    const STORAGE_KEY='habitTrackV1'; const GOALS_KEY='habitGoalsV1';
+    function loadData(){ try{return JSON.parse(localStorage.getItem(STORAGE_KEY)||'{}')}catch{return{}} }
+    function saveData(obj){ localStorage.setItem(STORAGE_KEY, JSON.stringify(obj)); }
+    function loadGoals(){ try{return JSON.parse(localStorage.getItem(GOALS_KEY)||'{}')}catch{return{}} }
+    function saveGoals(g){ localStorage.setItem(GOALS_KEY, JSON.stringify(g)); }
+
+    // State
+    let data = loadData(); let goals = Object.assign({cig:5,alc:1,cof:2}, loadGoals());
+    let lastAction = null; // {type:'save'|'clear', date:'YYYY-MM-DD', prev: {...} }
+
+    // Init UI elements
+    const dateInput = $('#date'); const cigInput = $('#cigarettes'); const alcInput = $('#alcohol'); const cofInput = $('#coffee'); const noteInput = $('#note');
+    const saveBtn = $('#saveBtn'); const clearBtn = $('#clearToday'); const undoBtn = $('#undoBtn');
+
+    // Tabs
+    $$('.tab').forEach(btn=>btn.addEventListener('click', ()=>{
+      $$('.tab').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      const id = btn.dataset.tab;
+      ['dashboard','calendar','trends','goals'].forEach(s=>{ const el = document.getElementById(s); if(!el) return; if(s===id) el.classList.remove('hidden'); else el.classList.add('hidden'); });
+      if(id==='calendar') renderCalendar(currentMonth);
+      if(id==='trends') renderTrends();
+      if(id==='dashboard') refreshCharts();
+    }));
+
+    // Helpers
+    function toast(msg, ms=2000){ const t=$('#toast'); t.textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'), ms); }
+    function clamp01(x){ return Math.max(0, Math.min(1, x)); }
+    function fmt(n){ return Number.isInteger(n)? n : Number(n.toFixed(1)); }
+
+    // Date restrictions (prevent future, lock past)
+    function isFutureKey(key){ return key > todayISO(); }
+    function isPastKey(key){ return key < todayISO(); }
+    function isReasonableKey(key){ // prevent device clock abuse: allow at most +/-1 day
+      const sel = new Date(key); const now = new Date(); sel.setHours(0,0,0,0); now.setHours(0,0,0,0);
+      const diff = Math.round((sel - now)/(1000*60*60*24));
+      return Math.abs(diff) <= 1;
+    }
+
+    // Form state logic
+    function setFormStateForDate(key){
+      // set input values
+      const v = data[key] || {cig:0,alc:0,cof:0,note:''};
+      cigInput.value = data[key]?.cig ?? '';
+      alcInput.value = data[key]?.alc ?? '';
+      cofInput.value = data[key]?.cof ?? '';
+      noteInput.value = data[key]?.note ?? '';
+
+      // prevent future
+      if(isFutureKey(key)){
+        saveBtn.disabled = true; clearBtn.disabled = true; undoBtn.style.display='none';
+        $('#formHint').textContent = 'Cannot log future dates.'; return;
+      }
+
+      // prevent crazy device clock
+      if(!isReasonableKey(key)){
+        saveBtn.disabled = true; clearBtn.disabled = true; undoBtn.style.display='none';
+        $('#formHint').textContent = 'Device date seems off. Please correct your clock.'; return;
+      }
+
+      // past days: read-only if an entry exists
+      if(isPastKey(key)){
+        if(data[key]){
+          cigInput.readOnly = true; alcInput.readOnly = true; cofInput.readOnly = true; noteInput.readOnly = true;
+          saveBtn.disabled = true; clearBtn.disabled = true; undoBtn.style.display='none';
+          $('#formHint').textContent = 'Past entries are read-only. Use Export/Import to edit offline backups.';
+          // visually mark
+          saveBtn.setAttribute('aria-disabled','true');
+        }else{
+          // past with no entry: disallow adding (can't log the past)
+          cigInput.readOnly = true; alcInput.readOnly = true; cofInput.readOnly = true; noteInput.readOnly = true;
+          saveBtn.disabled = true; clearBtn.disabled = true; undoBtn.style.display='none';
+          $('#formHint').textContent = 'You cannot create entries for past dates.';
+        }
+        return;
+      }
+
+      // today: editable
+      if(key === todayISO()){
+        cigInput.readOnly = false; alcInput.readOnly = false; cofInput.readOnly = false; noteInput.readOnly = false;
+        saveBtn.disabled = false; clearBtn.disabled = data[key] ? false : true; // clear only if exists
+        $('#formHint').textContent = 'Editing today. You may overwrite; Undo available.';
+        // show undo only if lastAction is a save for today
+        if(lastAction && lastAction.date===key) undoBtn.style.display='inline-flex'; else undoBtn.style.display='none';
+        return;
+      }
+
+      // fallback
+      saveBtn.disabled = true; clearBtn.disabled = true; undoBtn.style.display='none';
+    }
+
+    // Event: date input change
+    dateInput.addEventListener('change', ()=>{
+      const key = dateInput.value;
+      if(!key) return;
+      // enforce max
+      dateInput.max = todayISO();
+      setFormStateForDate(key);
+    });
+
+    // Save logic (prevents overwrite of past, future)
+    $('#logForm').addEventListener('submit', e=>{
+      e.preventDefault();
+      const key = dateInput.value;
+      if(!key) return toast('Select a valid date');
+      if(!isReasonableKey(key)) return toast('Device date seems off. Correct clock.');
+      if(isFutureKey(key)) return toast('Cannot log future dates.');
+      if(isPastKey(key) && data[key]) return toast('Past entries are locked and cannot be overwritten.');
+      if(isPastKey(key) && !data[key]) return toast('Cannot create entries for past dates.');
+
+      // OK to save only for today
+      if(key === todayISO()){
+        const prev = data[key] ? JSON.parse(JSON.stringify(data[key])) : null;
+        const cig = Number(cigInput.value || 0); const alc = Number(alcInput.value || 0); const cof = Number(cofInput.value || 0); const note = noteInput.value.trim();
+        data[key] = {cig,alc,cof,note}; saveData(data);
+        lastAction = {type:'save', date:key, prev};
+        toast('Saved today — undo available');
+        undoBtn.style.display='inline-flex'; clearBtn.disabled=false;
+        // mobile behaviour: switch to dashboard and scroll to top so charts are visible
+        $$('.tab').find(t=>t.dataset.tab==='dashboard').click();
+        window.scrollTo({top:0, behavior:'smooth'});
+        updateToday(); refreshCharts(); renderCalendar(currentMonth, false);
+      }
+    });
+
+    // Undo
+    undoBtn.addEventListener('click', ()=>{
+      if(!lastAction) return; const a = lastAction;
+      if(a.type==='save'){
+        if(a.prev) data[a.date] = a.prev; else delete data[a.date];
+        saveData(data); toast('Undo saved'); lastAction=null; undoBtn.style.display='none'; updateToday(); refreshCharts(); renderCalendar(currentMonth,false);
+      }
+    });
+
+    // Clear only allowed for today and only if exists
+    clearBtn.addEventListener('click', ()=>{
+      const key = dateInput.value;
+      if(key !== todayISO()) return toast('Can only clear today');
+      if(!data[key]) return toast('Nothing to clear');
+      if(!confirm('Clear today\'s entry?')) return;
+      lastAction = {type:'clear', date:key, prev: JSON.parse(JSON.stringify(data[key]))};
+      delete data[key]; saveData(data); toast('Cleared — undo available'); undoBtn.style.display='inline-flex'; updateToday(); refreshCharts(); renderCalendar(currentMonth,false);
+    });
+
+    // Export/Import
+    $('#exportData').addEventListener('click', ()=>{ const blob = new Blob([JSON.stringify({data,goals},null,2)],{type:'application/json'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='habit-export.json'; a.click(); URL.revokeObjectURL(a.href); });
+    $('#importFile').addEventListener('change', ev=>{ const f=ev.target.files[0]; if(!f) return; const r=new FileReader(); r.onload=()=>{ try{ const obj=JSON.parse(r.result); if(obj.data) data=obj.data; if(obj.goals) goals=Object.assign(goals,obj.goals); saveData(data); saveGoals(goals); toast('Imported'); hydrateGoalsForm(); updateToday(); refreshCharts(); renderCalendar(currentMonth,false);}catch(err){toast('Import failed');}}; r.readAsText(f); ev.target.value=''; });
+
+    // Goals
+    function hydrateGoalsForm(){ $('#goalCig').value = goals.cig; $('#goalAlc').value = goals.alc; $('#goalCof').value = goals.cof; }
+    $('#goalsForm').addEventListener('submit', e=>{ e.preventDefault(); goals = {cig:Number($('#goalCig').value||0), alc:Number($('#goalAlc').value||0), cof:Number($('#goalCof').value||0)}; saveGoals(goals); toast('Goals saved'); updateToday(); renderCalendar(currentMonth,false); refreshCharts(); });
+    $('#resetAll').addEventListener('click', ()=>{ if(confirm('Erase all entries and goals?')){ data={}; goals={cig:5,alc:1,cof:2}; saveData(data); saveGoals(goals); hydrateGoalsForm(); updateToday(); refreshCharts(); renderCalendar(currentMonth,false); toast('Reset'); } });
+
+    // Stats helpers
+    function daysRange(n){ const arr=[]; const end=new Date(); end.setHours(0,0,0,0); const start=new Date(end); start.setDate(end.getDate()-n+1); for(let d=new Date(start); d<=end; d.setDate(d.getDate()+1)) arr.push(toISO(d)); return arr; }
+    function weeklyBuckets(map){ const entries = Object.entries(map).map(([d,v])=>({d,...v})).sort((a,b)=>a.d.localeCompare(b.d)); const buckets=new Map(); for(const e of entries){ const ws = toISO((function(d){ const nd=new Date(d); const day=(nd.getDay()+6)%7; nd.setDate(nd.getDate()-day); nd.setHours(0,0,0,0); return nd; })(fromISO(e.d))); const cur = buckets.get(ws)||{week:ws,cig:0,alc:0,cof:0}; cur.cig+=e.cig||0; cur.alc+=e.alc||0; cur.cof+=e.cof||0; buckets.set(ws,cur);} return Array.from(buckets.values()).sort((a,b)=>a.week.localeCompare(b.week)); }
+    function movingAverage(series,k=7){ const vals=series.map(x=>x??0); const out=Array(vals.length).fill(null); let sum=0,q=[]; for(let i=0;i<vals.length;i++){ q.push(vals[i]); sum+=vals[i]; if(q.length>k) sum-=q.shift(); if(q.length===k) out[i]=sum/k;} return out; }
+    function streakInfo(){ let best=0,cur=0; const end=new Date(); end.setHours(0,0,0,0); const start=new Date(end); start.setDate(start.getDate()-365); for(let d=new Date(start); d<=end; d.setDate(d.getDate()+1)){ const key=toISO(d); const v=data[key]||{cig:0,alc:0,cof:0}; const ok = v.cig<=goals.cig && v.alc<=goals.alc && v.cof<=goals.cof; if(ok){ cur++; best=Math.max(best,cur);} else { cur=0; } } return {current:cur,best}; }
+
+    // Dashboard update
+    function updateToday(){ const key = dateInput.value || todayISO(); const v = data[key]||{cig:0,alc:0,cof:0}; const wrap = $('#todaySummary'); wrap.innerHTML=''; const items=[{label:'Cigarettes',val:v.cig||0,goal:goals.cig},{label:'Alcohol',val:v.alc||0,goal:goals.alc},{label:'Coffee',val:v.cof||0,goal:goals.cof}]; items.forEach(it=>{ const pct = clamp01((it.goal===0? (it.val===0?1:0) : (1-(it.val/it.goal))))*100; const el=document.createElement('div'); el.className='kpi'; el.innerHTML=`<div><div class='muted'>${it.label}</div><strong>${fmt(it.val)}</strong></div><div style='min-width:120px'><div class='progress'><span style='width:${pct}%'></span></div><div class='muted' style='font-size:12px;text-align:right'>Goal ${it.goal}</div></div>`; wrap.appendChild(el); }); const okAll = v.cig<=goals.cig && v.alc<=goals.alc && v.cof<=goals.cof; $('#goalProgressBar').style.width = okAll? '100%':'40%'; const s = streakInfo(); $('#streaks').textContent = `${s.current} / best ${s.best}`; setFormStateForDate(key); }
+
+    // Charts
+    let lineChart, barChart, maChart;
+    function chartData90(){ const days = daysRange(90); return {days, cig:days.map(d=>data[d]?.cig??0), alc:days.map(d=>data[d]?.alc??0), cof:days.map(d=>data[d]?.cof??0)} }
+    function refreshCharts(){ const {days,cig,alc,cof}=chartData90(); if(lineChart) lineChart.destroy(); lineChart = new Chart($('#lineChart'),{type:'line',data:{labels:days,datasets:[{label:'Cigarettes',data:cig,borderColor:'#ef4444',pointRadius:0},{label:'Alcohol',data:alc,borderColor:'#f59e0b',pointRadius:0},{label:'Coffee',data:cof,borderColor:'#22c55e',pointRadius:0}]},options:{responsive:true,maintainAspectRatio:false,scales:{y:{beginAtZero:true}}}}); const weeks = weeklyBuckets(data); if(barChart) barChart.destroy(); barChart = new Chart($('#barChart'),{type:'bar',data:{labels:weeks.map(w=>w.week),datasets:[{label:'Cigarettes',data:weeks.map(w=>w.cig),backgroundColor:'#ef4444'},{label:'Alcohol',data:weeks.map(w=>w.alc),backgroundColor:'#f59e0b'},{label:'Coffee',data:weeks.map(w=>w.cof),backgroundColor:'#22c55e'}]},options:{responsive:true,maintainAspectRatio:false,scales:{x:{stacked:true},y:{stacked:true,beginAtZero:true}}}});
+    }
+
+    function renderTrends(){ const {days,cig,alc,cof}=chartData90(); const maC=movingAverage(cig,7); const maA=movingAverage(alc,7); const maF=movingAverage(cof,7); if(maChart) maChart.destroy(); maChart = new Chart($('#maChart'),{type:'line',data:{labels:days,datasets:[{label:'Cigarettes (7dMA)',data:maC,borderColor:'#ef4444',pointRadius:0},{label:'Alcohol (7dMA)',data:maA,borderColor:'#f59e0b',pointRadius:0},{label:'Coffee (7dMA)',data:maF,borderColor:'#22c55e',pointRadius:0}]},options:{responsive:true,maintainAspectRatio:false,scales:{y:{beginAtZero:true}}}}); const arr = Object.entries(data).map(([d,v])=>({d,total:(v.cig||0)+(v.alc||0)+(v.cof||0),...v})).sort((a,b)=>a.total-b.total); const best=arr.slice(0,3); const worst=arr.slice(-3).reverse(); $('#bestWorst').innerHTML = `<div style="display:flex;gap:8px"><div style='flex:1'><h4 style='margin:0 0 6px 0'>Best</h4><ol>${best.map((e,i)=>`<li>${e.d} — 🚬${fmt(e.cig||0)} · 🍺${fmt(e.alc||0)} · ☕${fmt(e.cof||0)}</li>`).join('')||'<li class="muted">No data</li>'}</ol></div><div style='flex:1'><h4 style='margin:0 0 6px 0'>Tough</h4><ol>${worst.map((e,i)=>`<li>${e.d} — 🚬${fmt(e.cig||0)} · 🍺${fmt(e.alc||0)} · ☕${fmt(e.cof||0)}</li>`).join('')||'<li class="muted">No data</li>'}</ol></div></div>`; }
+
+    // Calendar
+    let currentMonth = new Date(); currentMonth.setDate(1);
+    function renderCalendar(refDate, setLabel=true){ const grid = $('#calendarGrid'); grid.innerHTML=''; const y=refDate.getFullYear(), m=refDate.getMonth(); const first=new Date(y,m,1), last=new Date(y,m+1,0); const padStart=(first.getDay()+6)%7; const daysCount=last.getDate(); if(setLabel) $('#monthLabel').textContent = first.toLocaleString(undefined,{month:'long',year:'numeric'});
+      const weekdays=['Mon','Tue','Wed','Thu','Fri','Sat','Sun']; weekdays.forEach(n=>{ const h=document.createElement('div'); h.className='muted'; h.style.textAlign='center'; h.textContent=n; grid.appendChild(h); }); for(let i=0;i<padStart;i++){ grid.appendChild(document.createElement('div')); }
+      const today = todayISO(); for(let d=1; d<=daysCount; d++){ const key=`${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`; const v=data[key]; const el=document.createElement('button'); el.type='button'; el.className='cal-day'; if(key===today) el.classList.add('today'); if(v) el.innerHTML = `<div class='date'>${d}</div><div class='val'>🚬 ${fmt(v.cig||0)} · 🍺 ${fmt(v.alc||0)} · ☕ ${fmt(v.cof||0)}</div>`; else el.innerHTML=`<div class='date'>${d}</div><div class='val'>—</div>`; // status coloring
+        if(v){ if(v.cig>goals.cig||v.alc>goals.alc||v.cof>goals.cof) el.style.borderColor='rgba(239,68,68,.4)'; else if(v.cig===goals.cig||v.alc===goals.alc||v.cof===goals.cof) el.style.borderColor='rgba(245,158,11,.32)'; else el.style.borderColor='rgba(34,197,94,.2)'; }
+        el.addEventListener('click', ()=>{ // only allow inspect; editing only for today
+          dateInput.value = key; setFormStateForDate(key); if(key === todayISO()){ // focus inputs for quick editing
+            $$('.tab').find(t=>t.dataset.tab==='dashboard').click(); window.scrollTo({top:0,behavior:'smooth'});
+          } else {
+            // past day or future -> navigate to dashboard but keep read-only
+            $$('.tab').find(t=>t.dataset.tab==='dashboard').click(); window.scrollTo({top:0,behavior:'smooth'});
+          }
+        }); grid.appendChild(el); }
+      // weekly summary
+      const start = (function(){ const nd=new Date(y,m,1); const day=(nd.getDay()+6)%7; nd.setDate(nd.getDate()-day); nd.setHours(0,0,0,0); return nd; })(); const end = new Date(y,m+1,0); const sum=new Map(); for(let d=new Date(start); d<=end; d.setDate(d.getDate()+1)){ const key=toISO(d); const wk=toISO((function(x){ const nd=new Date(x); const day=(nd.getDay()+6)%7; nd.setDate(nd.getDate()-day); nd.setHours(0,0,0,0); return nd; })(d)); const cur=sum.get(wk)||{cig:0,alc:0,cof:0}; const v=data[key]; if(v){ cur.cig+=v.cig||0; cur.alc+=v.alc||0; cur.cof+=v.cof||0; } sum.set(wk,cur); } const weekly=Array.from(sum.entries()).sort((a,b)=>a[0].localeCompare(b[0])); $('#weeklySummary').innerHTML = `<ul>${weekly.map(([wk,v])=>`<li><strong>${wk}</strong> — 🚬 ${fmt(v.cig)} · 🍺 ${fmt(v.alc)} · ☕ ${fmt(v.cof)}</li>`).join('') || '<li class="muted">No data</li>'}</ul>`;
+    }
+    $('#prevMonth').addEventListener('click', ()=>{ currentMonth.setMonth(currentMonth.getMonth()-1); renderCalendar(currentMonth); });
+    $('#nextMonth').addEventListener('click', ()=>{ currentMonth.setMonth(currentMonth.getMonth()+1); renderCalendar(currentMonth); });
+    $('#todayBtn').addEventListener('click', ()=>{ currentMonth = new Date(); currentMonth.setDate(1); renderCalendar(currentMonth); $$('.tab').find(t=>t.dataset.tab==='calendar').click(); });
+
+    // Init
+    hydrateGoalsForm(); dateInput.value = todayISO(); dateInput.max = todayISO(); updateToday(); refreshCharts(); renderCalendar(currentMonth);
+
+    // Tiny self-tests
+    (function(){ try{ const ma=movingAverage([1,2,3,4,5,6,7],7); console.log('self test ma:',ma[6]===4?'ok':'fail'); }catch(e){console.warn(e);} })();
+
+    // PWA install/button & service worker registration
+    (function(){ const installBtn = document.getElementById('installPwa'); let deferred=null; const isIos = /iphone|ipad|ipod/i.test(navigator.userAgent); if(!window.matchMedia('(display-mode: standalone)').matches){ window.addEventListener('beforeinstallprompt', e=>{ e.preventDefault(); deferred=e; if(installBtn) installBtn.style.display='inline-flex'; }); if(isIos && installBtn) installBtn.style.display='inline-flex'; }
+      if(installBtn) installBtn.addEventListener('click', async ()=>{ if(deferred){ deferred.prompt(); await deferred.userChoice; deferred=null; installBtn.style.display='none'; } else if(isIos) toast('On iPhone: tap Share → Add to Home Screen'); else toast('Use browser menu → Install app'); });
+      if('serviceWorker' in navigator){ if(location.protocol==='https:'||location.hostname==='localhost'){ window.addEventListener('load', ()=>{ navigator.serviceWorker.register('./sw.js').then(()=>console.log('sw ok')).catch(e=>console.warn('sw failed',e)); }); } else console.warn('SW requires HTTPS or localhost'); }
+    })();
+  </script>
+
+  <!-- PWA helper files: create manifest.webmanifest and sw.js as instructed earlier -->
+</body>
+</html>
